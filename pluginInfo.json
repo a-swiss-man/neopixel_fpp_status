@@ -2,7 +2,7 @@
   "repoName": "neopixel_fpp_status",
   "name": "NeoPixel Trinkey Status",
   "author": "FPP User",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Displays FPP status on an Adafruit NeoPixel Trinkey connected via USB.",
   "homeURL": "https://github.com/a-swiss-man/neopixel_fpp_status",
   "srcURL": "https://github.com/a-swiss-man/neopixel_fpp_status.git",
