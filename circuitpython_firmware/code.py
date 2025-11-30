@@ -3,6 +3,7 @@ import board
 import neopixel
 import supervisor
 import sys
+import touchio
 
 # Setup NeoPixels
 # Trinkey has 4 NeoPixels
@@ -19,6 +20,41 @@ COLOR_OFF = (0, 0, 0)         # Off
 
 current_status = "I" # Default to Idle
 last_check = 0
+
+# Setup touch inputs
+# NeoPixel Trinkey M0 has touch pads - check available touch pins
+try:
+    # Try common touch pin names for Trinkey M0
+    if hasattr(board, 'TOUCH1'):
+        touch1 = touchio.TouchIn(board.TOUCH1)
+    elif hasattr(board, 'A0'):
+        touch1 = touchio.TouchIn(board.A0)
+    else:
+        # Fallback - try to find a touch-capable pin
+        touch1 = None
+        print("Warning: Touch pad 1 not available")
+except Exception as e:
+    touch1 = None
+    print(f"Could not initialize touch pad 1: {e}")
+
+try:
+    if hasattr(board, 'TOUCH2'):
+        touch2 = touchio.TouchIn(board.TOUCH2)
+    elif hasattr(board, 'A1'):
+        touch2 = touchio.TouchIn(board.A1)
+    else:
+        touch2 = None
+        print("Warning: Touch pad 2 not available")
+except Exception as e:
+    touch2 = None
+    print(f"Could not initialize touch pad 2: {e}")
+
+# Touch state tracking
+touch1_last_state = False
+touch2_last_state = False
+touch_debounce_time = 0.2  # 200ms debounce
+touch1_last_time = 0
+touch2_last_time = 0
 
 def set_color(color):
     pixels.fill(color)
@@ -133,4 +169,37 @@ while True:
         # This prevents the LEDs from turning off due to invalid input
         pass
 
+    # Check touch inputs
+    current_time = time.monotonic()
+    
+    if touch1 is not None:
+        touch1_state = touch1.value
+        # Detect touch press (edge detection with debounce)
+        if touch1_state and not touch1_last_state and (current_time - touch1_last_time) > touch_debounce_time:
+            # Touch pad 1 pressed - send event to FPP
+            try:
+                # Send "T1" to indicate touch pad 1 was pressed
+                sys.stdout.write("T1\n")
+                sys.stdout.flush()
+                print("Touch pad 1 pressed - sent T1")
+                touch1_last_time = current_time
+            except Exception as e:
+                print(f"Error sending touch event: {e}")
+        touch1_last_state = touch1_state
+    
+    if touch2 is not None:
+        touch2_state = touch2.value
+        # Detect touch press (edge detection with debounce)
+        if touch2_state and not touch2_last_state and (current_time - touch2_last_time) > touch_debounce_time:
+            # Touch pad 2 pressed - send event to FPP
+            try:
+                # Send "T2" to indicate touch pad 2 was pressed
+                sys.stdout.write("T2\n")
+                sys.stdout.flush()
+                print("Touch pad 2 pressed - sent T2")
+                touch2_last_time = current_time
+            except Exception as e:
+                print(f"Error sending touch event: {e}")
+        touch2_last_state = touch2_state
+    
     time.sleep(0.1)

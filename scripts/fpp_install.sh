@@ -21,8 +21,9 @@ chmod 666 "$LOG_FILE"
 mkdir -p /home/fpp/media/config
 chmod 755 /home/fpp/media/config
 
-# Make status poller and test scripts executable (backup method if callbacks don't work)
+# Make status poller, touch listener, and test scripts executable
 POLLER_SCRIPT="$PLUGIN_DIR/scripts/status_poller.sh"
+TOUCH_SCRIPT="$PLUGIN_DIR/scripts/touch_listener.sh"
 TEST_SCRIPT="$PLUGIN_DIR/scripts/test_status_methods.sh"
 SERVICE_FILE="$PLUGIN_DIR/scripts/neopixel-status-poller.service"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -30,6 +31,10 @@ SYSTEMD_DIR="/etc/systemd/system"
 if [ -f "$POLLER_SCRIPT" ]; then
     chmod +x "$POLLER_SCRIPT"
     echo "✓ Status poller script is executable"
+fi
+if [ -f "$TOUCH_SCRIPT" ]; then
+    chmod +x "$TOUCH_SCRIPT"
+    echo "✓ Touch listener script is executable"
 fi
 if [ -f "$TEST_SCRIPT" ]; then
     chmod +x "$TEST_SCRIPT"

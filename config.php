@@ -135,10 +135,24 @@ if (isset($_POST['save_config'])) {
         }
     }
     
+    // Get touch input configurations
+    $touch1_action = isset($_POST['touch1_action']) ? trim($_POST['touch1_action']) : "none";
+    $touch2_action = isset($_POST['touch2_action']) ? trim($_POST['touch2_action']) : "none";
+    $touch1_playlist = isset($_POST['touch1_playlist']) ? trim($_POST['touch1_playlist']) : "";
+    $touch2_playlist = isset($_POST['touch2_playlist']) ? trim($_POST['touch2_playlist']) : "";
+    
     // Save configuration
     $config = "[neopixel_status]\n";
     $config .= "device = " . ($device ? $device : "") . "\n";
     $config .= "brightness = $brightness\n";
+    $config .= "touch1_action = $touch1_action\n";
+    $config .= "touch2_action = $touch2_action\n";
+    if (!empty($touch1_playlist)) {
+        $config .= "touch1_playlist = $touch1_playlist\n";
+    }
+    if (!empty($touch2_playlist)) {
+        $config .= "touch2_playlist = $touch2_playlist\n";
+    }
     
     if (file_put_contents($configFile, $config)) {
         if (empty($message)) {
@@ -155,6 +169,11 @@ if (isset($_POST['save_config'])) {
 // Load current configuration
 $currentDevice = "";
 $currentBrightness = 30; // Default brightness
+$currentTouch1Action = "none";
+$currentTouch2Action = "none";
+$currentTouch1Playlist = "";
+$currentTouch2Playlist = "";
+
 if (file_exists($configFile)) {
     $config = parse_ini_file($configFile);
     if (isset($config['device']) && !empty($config['device'])) {
@@ -163,6 +182,18 @@ if (file_exists($configFile)) {
     if (isset($config['brightness'])) {
         $currentBrightness = intval($config['brightness']);
         $currentBrightness = max(0, min(100, $currentBrightness)); // Clamp
+    }
+    if (isset($config['touch1_action'])) {
+        $currentTouch1Action = $config['touch1_action'];
+    }
+    if (isset($config['touch2_action'])) {
+        $currentTouch2Action = $config['touch2_action'];
+    }
+    if (isset($config['touch1_playlist'])) {
+        $currentTouch1Playlist = $config['touch1_playlist'];
+    }
+    if (isset($config['touch2_playlist'])) {
+        $currentTouch2Playlist = $config['touch2_playlist'];
     }
 }
 
@@ -270,6 +301,84 @@ foreach ($commonDevices as $device) {
                         </td>
                     </tr>
                 </table>
+            </fieldset>
+            
+            </fieldset>
+            
+            <fieldset>
+                <legend>Touch Input Configuration</legend>
+                <p>Configure what happens when you touch the two touch pads on the NeoPixel Trinkey.</p>
+                <?php
+                // Get list of playlists from FPP API (reuse for both touch pads)
+                $playlists = array();
+                $playlistJson = @file_get_contents("http://localhost/api/playlists");
+                if ($playlistJson) {
+                    $playlistData = json_decode($playlistJson, true);
+                    if (isset($playlistData['playlists']) && is_array($playlistData['playlists'])) {
+                        foreach ($playlistData['playlists'] as $playlist) {
+                            if (isset($playlist['playlist'])) {
+                                $playlists[] = $playlist['playlist'];
+                            }
+                        }
+                    }
+                }
+                ?>
+                <table style="width: 100%; margin: 10px 0;">
+                    <tr>
+                        <th style="padding: 5px; text-align: left;">Touch Pad</th>
+                        <th style="padding: 5px; text-align: left;">Action</th>
+                        <th style="padding: 5px; text-align: left;">Playlist (if applicable)</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px;"><strong>Touch Pad 1</strong></td>
+                        <td style="padding: 5px;">
+                            <select name="touch1_action" id="touch1_action" style="width: 200px;" onchange="togglePlaylistField('touch1', this.value)">
+                                <option value="none" <?php echo $currentTouch1Action == 'none' ? 'selected' : ''; ?>>No Action</option>
+                                <option value="playlist_start" <?php echo $currentTouch1Action == 'playlist_start' ? 'selected' : ''; ?>>Start Playlist</option>
+                                <option value="playlist_stop" <?php echo $currentTouch1Action == 'playlist_stop' ? 'selected' : ''; ?>>Stop Playlist</option>
+                                <option value="playlist_toggle" <?php echo $currentTouch1Action == 'playlist_toggle' ? 'selected' : ''; ?>>Toggle Playlist</option>
+                                <option value="next_playlist" <?php echo $currentTouch1Action == 'next_playlist' ? 'selected' : ''; ?>>Next Playlist</option>
+                                <option value="volume_up" <?php echo $currentTouch1Action == 'volume_up' ? 'selected' : ''; ?>>Volume Up (+5%)</option>
+                                <option value="volume_down" <?php echo $currentTouch1Action == 'volume_down' ? 'selected' : ''; ?>>Volume Down (-5%)</option>
+                            </select>
+                        </td>
+                        <td style="padding: 5px;" id="touch1_playlist_cell" style="display: <?php echo ($currentTouch1Action == 'playlist_start' || $currentTouch1Action == 'playlist_toggle') ? 'table-cell' : 'none'; ?>;">
+                            <select name="touch1_playlist" id="touch1_playlist" style="width: 200px;">
+                                <option value="">Select Playlist...</option>
+                                <?php foreach ($playlists as $playlist): ?>
+                                    <option value="<?php echo htmlspecialchars($playlist); ?>" <?php echo $currentTouch1Playlist == $playlist ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($playlist); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px;"><strong>Touch Pad 2</strong></td>
+                        <td style="padding: 5px;">
+                            <select name="touch2_action" id="touch2_action" style="width: 200px;" onchange="togglePlaylistField('touch2', this.value)">
+                                <option value="none" <?php echo $currentTouch2Action == 'none' ? 'selected' : ''; ?>>No Action</option>
+                                <option value="playlist_start" <?php echo $currentTouch2Action == 'playlist_start' ? 'selected' : ''; ?>>Start Playlist</option>
+                                <option value="playlist_stop" <?php echo $currentTouch2Action == 'playlist_stop' ? 'selected' : ''; ?>>Stop Playlist</option>
+                                <option value="playlist_toggle" <?php echo $currentTouch2Action == 'playlist_toggle' ? 'selected' : ''; ?>>Toggle Playlist</option>
+                                <option value="next_playlist" <?php echo $currentTouch2Action == 'next_playlist' ? 'selected' : ''; ?>>Next Playlist</option>
+                                <option value="volume_up" <?php echo $currentTouch2Action == 'volume_up' ? 'selected' : ''; ?>>Volume Up (+5%)</option>
+                                <option value="volume_down" <?php echo $currentTouch2Action == 'volume_down' ? 'selected' : ''; ?>>Volume Down (-5%)</option>
+                            </select>
+                        </td>
+                        <td style="padding: 5px;" id="touch2_playlist_cell" style="display: <?php echo ($currentTouch2Action == 'playlist_start' || $currentTouch2Action == 'playlist_toggle') ? 'table-cell' : 'none'; ?>;">
+                            <select name="touch2_playlist" id="touch2_playlist" style="width: 200px;">
+                                <option value="">Select Playlist...</option>
+                                <?php foreach ($playlists as $playlist): ?>
+                                    <option value="<?php echo htmlspecialchars($playlist); ?>" <?php echo $currentTouch2Playlist == $playlist ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($playlist); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                </table>
+                <p><small><i>Note: Touch inputs send events to FPP when the pads are touched. Start the touch listener: <code>/home/fpp/media/plugins/neopixel_fpp_status/scripts/touch_listener.sh &</code></i></small></p>
             </fieldset>
             
             <br>
@@ -564,6 +673,16 @@ function toggleSection(sectionId) {
     } else {
         section.style.display = 'none';
         toggle.textContent = '▼';
+    }
+}
+
+// Toggle playlist field based on action selection
+function togglePlaylistField(touchNum, action) {
+    var cell = document.getElementById(touchNum + '_playlist_cell');
+    if (action == 'playlist_start' || action == 'playlist_toggle') {
+        cell.style.display = 'table-cell';
+    } else {
+        cell.style.display = 'none';
     }
 }
 
