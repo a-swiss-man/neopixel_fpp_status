@@ -50,6 +50,9 @@ def wheel(pos):
 print("FPP Status Listener Started")
 set_color(COLOR_IDLE)
 
+# Valid status characters
+VALID_STATUSES = ["I", "P", "S", "E", "R"]
+
 while True:
     # Check for serial input
     if supervisor.runtime.serial_bytes_available:
@@ -57,8 +60,14 @@ while True:
             # Read one byte
             input_char = sys.stdin.read(1)
             if input_char:
-                current_status = input_char.strip()
-                print(f"Received status: {current_status}")
+                # Strip whitespace and newlines, but keep the character
+                cleaned_char = input_char.strip()
+                # Only update status if we got a valid status character
+                if cleaned_char in VALID_STATUSES:
+                    current_status = cleaned_char
+                    print(f"Received status: {current_status}")
+                elif input_char.strip():  # If it's not empty after strip but not valid
+                    print(f"Invalid status character received: '{input_char}' (ord: {ord(input_char)})")
         except Exception as e:
             print(f"Error reading serial: {e}")
 
@@ -80,6 +89,8 @@ while True:
     elif current_status == "R": # Rainbow (Demo)
         rainbow_cycle(0.01)
     else:
-        set_color(COLOR_OFF)
+        # Unknown status - keep current color instead of turning off
+        # This prevents the LEDs from turning off due to invalid input
+        pass
 
     time.sleep(0.1)

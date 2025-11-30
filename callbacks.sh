@@ -79,15 +79,23 @@ send_status() {
         return
     fi
     
+    # Verify device is writable
+    if [ ! -w "$DEVICE" ]; then
+        log_message "Error: Device $DEVICE is not writable. Check permissions."
+        return
+    fi
+    
     log_message "Sending status '$STATUS_CHAR' to $DEVICE"
     
-    # Configure stty to ensure raw communication (optional but good practice)
-    # stty -F $DEVICE 115200 raw -echo
+    # Configure stty to ensure raw communication
+    stty -F "$DEVICE" 115200 raw -echo -echoe -echok 2>/dev/null
     
-    # Send the character
-    # We use printf to avoid newlines if not needed, but echo is usually fine.
-    # The CircuitPython script reads 1 byte.
-    echo -n "$STATUS_CHAR" > "$DEVICE"
+    # Send the character using printf to ensure no extra characters
+    # printf is more reliable than echo for single character transmission
+    printf '%s' "$STATUS_CHAR" > "$DEVICE"
+    
+    # Small delay to ensure transmission completes
+    sleep 0.01
 }
 
 # Function to detect device on boot/startup
@@ -100,6 +108,8 @@ detect_device_on_boot() {
         return 1
     else
         log_message "SUCCESS: NeoPixel Trinkey detected on boot at $DEVICE"
+        # Wait a moment for the device to be fully ready
+        sleep 0.5
         # Send initial idle status
         send_status "I"
         return 0
