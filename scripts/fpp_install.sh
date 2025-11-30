@@ -5,6 +5,13 @@
 
 echo "Installing NeoPixel Trinkey Status Plugin..."
 
+# Force update from GitHub to ensure we have the latest files
+# This is useful if local changes prevent FPP from updating correctly
+cd /home/fpp/media/plugins/neopixel_fpp_status
+git fetch --all
+git reset --hard origin/master
+
+
 # Ensure the callbacks script is executable
 chmod +x /home/fpp/media/plugins/neopixel_fpp_status/callbacks.sh
 
