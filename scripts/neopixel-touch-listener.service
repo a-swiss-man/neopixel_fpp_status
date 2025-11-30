@@ -1,0 +1,19 @@
+[Unit]
+Description=NeoPixel Trinkey Touch Input Listener
+After=fppd.service
+Requires=fppd.service
+
+[Service]
+Type=simple
+User=fpp
+Group=fpp
+WorkingDirectory=/home/fpp/media/plugins/neopixel_fpp_status/scripts
+ExecStart=/home/fpp/media/plugins/neopixel_fpp_status/scripts/touch_listener.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/fpp/media/logs/neopixel_status.log
+StandardError=append:/home/fpp/media/logs/neopixel_status.log
+
+[Install]
+WantedBy=multi-user.target
+

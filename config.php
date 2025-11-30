@@ -21,11 +21,11 @@ function log_message($message) {
 $serviceMessage = "";
 $serviceMessageType = "";
 
-if (isset($_POST['service_action'])) {
+if (isset($_POST['service_action']) && isset($_POST['service_name'])) {
     $action = isset($_POST['service_action']) ? trim($_POST['service_action']) : "";
-    $serviceName = "neopixel-status-poller.service";
+    $serviceName = isset($_POST['service_name']) ? trim($_POST['service_name']) : "";
     
-    if (in_array($action, array('start', 'stop', 'restart', 'status'))) {
+    if (in_array($action, array('start', 'stop', 'restart', 'status', 'enable', 'disable')) && !empty($serviceName)) {
         $output = array();
         $returnVar = 0;
         exec("sudo systemctl $action $serviceName 2>&1", $output, $returnVar);
@@ -36,16 +36,20 @@ if (isset($_POST['service_action'])) {
                 exec("systemctl is-active $serviceName 2>&1", $statusOutput);
                 $isActive = implode("", $statusOutput);
                 $serviceMessage = "Service status: <strong>$isActive</strong>";
+            } else if ($action == 'enable') {
+                $serviceMessage = "Service auto-start enabled.";
+            } else if ($action == 'disable') {
+                $serviceMessage = "Service auto-start disabled.";
             } else {
                 $serviceMessage = "Service $action command executed successfully.";
             }
             $serviceMessageType = "success";
-            log_message("Service $action executed");
+            log_message("Service $serviceName $action executed");
         } else {
             $errorOutput = implode("\n", array_slice($output, -3));
             $serviceMessage = "Error executing service $action command.<br><small>Error: " . htmlspecialchars($errorOutput) . "</small>";
             $serviceMessageType = "error";
-            log_message("Service $action failed: " . implode(" ", $output));
+            log_message("Service $serviceName $action failed: " . implode(" ", $output));
         }
     }
 }
@@ -378,7 +382,7 @@ foreach ($commonDevices as $device) {
                         </td>
                     </tr>
                 </table>
-                <p><small><i>Note: Touch inputs send events to FPP when the pads are touched. Start the touch listener: <code>/home/fpp/media/plugins/neopixel_fpp_status/scripts/touch_listener.sh &</code></i></small></p>
+                <p><small><i>Note: Touch inputs send events to FPP when the pads are touched. The touch listener service will start automatically on boot if enabled (see Touch Listener Service section below).</i></small></p>
             </fieldset>
             
             <br>
@@ -468,6 +472,7 @@ foreach ($commonDevices as $device) {
         </table>
         
         <form method="post" action="" style="margin: 10px 0;">
+            <input type="hidden" name="service_name" value="neopixel-status-poller.service">
             <input type="submit" name="service_action" value="start" class="buttons" <?php echo $isActive ? 'disabled' : ''; ?>>
             <input type="submit" name="service_action" value="stop" class="buttons" <?php echo !$isActive ? 'disabled' : ''; ?>>
             <input type="submit" name="service_action" value="restart" class="buttons">
@@ -475,6 +480,63 @@ foreach ($commonDevices as $device) {
         </form>
         
         <p><small><i>Note: The status poller automatically monitors FPP status and updates the Trinkey. 
+        It runs as a systemd service and will automatically start on boot if enabled.</i></small></p>
+    </fieldset>
+    
+    <fieldset>
+        <legend>Touch Listener Service</legend>
+        <p>Control the touch listener service that receives touch input from the Trinkey and triggers FPP actions.</p>
+        
+        <?php
+        // Check touch listener service status
+        $touchServiceName = "neopixel-touch-listener.service";
+        $touchServiceStatus = "unknown";
+        $touchIsActive = false;
+        $touchIsEnabled = false;
+        
+        $output = array();
+        exec("systemctl is-active $touchServiceName 2>&1", $output);
+        $touchServiceStatus = implode("", $output);
+        $touchIsActive = ($touchServiceStatus == "active");
+        
+        $output = array();
+        exec("systemctl is-enabled $touchServiceName 2>&1", $output);
+        $touchEnabledStatus = implode("", $output);
+        $touchIsEnabled = ($touchEnabledStatus == "enabled");
+        ?>
+        
+        <table style="width: 100%; margin: 10px 0;">
+            <tr>
+                <td style="padding: 5px;"><strong>Service Status:</strong></td>
+                <td style="padding: 5px;">
+                    <?php if ($touchIsActive): ?>
+                        <span style="color: green;">● Running</span>
+                    <?php else: ?>
+                        <span style="color: red;">● Stopped</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 5px;"><strong>Auto-Start:</strong></td>
+                <td style="padding: 5px;">
+                    <?php if ($touchIsEnabled): ?>
+                        <span style="color: green;">● Enabled (starts on boot)</span>
+                    <?php else: ?>
+                        <span style="color: orange;">● Disabled</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        </table>
+        
+        <form method="post" action="" style="margin: 10px 0;">
+            <input type="hidden" name="service_name" value="neopixel-touch-listener.service">
+            <input type="submit" name="service_action" value="start" class="buttons" <?php echo $touchIsActive ? 'disabled' : ''; ?>>
+            <input type="submit" name="service_action" value="stop" class="buttons" <?php echo !$touchIsActive ? 'disabled' : ''; ?>>
+            <input type="submit" name="service_action" value="restart" class="buttons">
+            <input type="submit" name="service_action" value="status" class="buttons">
+        </form>
+        
+        <p><small><i>Note: The touch listener reads touch events from the Trinkey and executes configured FPP actions. 
         It runs as a systemd service and will automatically start on boot if enabled.</i></small></p>
     </fieldset>
     

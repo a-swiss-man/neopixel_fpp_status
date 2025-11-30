@@ -7,23 +7,41 @@ echo "Uninstalling NeoPixel Trinkey Status Plugin..."
 
 EVENTS_DIR="/home/fpp/media/events"
 
-# Stop and remove systemd service
-echo "Stopping and removing systemd service..."
+# Stop and remove systemd services
+echo "Stopping and removing systemd services..."
+
+# Status poller service
 if sudo systemctl stop neopixel-status-poller.service 2>/dev/null; then
-    echo "✓ Service stopped"
+    echo "✓ Status poller service stopped"
 fi
 
 if sudo systemctl disable neopixel-status-poller.service 2>/dev/null; then
-    echo "✓ Service disabled"
+    echo "✓ Status poller service disabled"
 fi
 
 if sudo rm -f /etc/systemd/system/neopixel-status-poller.service 2>/dev/null; then
-    echo "✓ Service file removed"
-    if sudo systemctl daemon-reload 2>/dev/null; then
-        echo "✓ Systemd daemon reloaded"
-    fi
+    echo "✓ Status poller service file removed"
 else
-    echo "⚠ Warning: Could not remove service file (may need sudo)"
+    echo "⚠ Warning: Could not remove status poller service file (may need sudo)"
+fi
+
+# Touch listener service
+if sudo systemctl stop neopixel-touch-listener.service 2>/dev/null; then
+    echo "✓ Touch listener service stopped"
+fi
+
+if sudo systemctl disable neopixel-touch-listener.service 2>/dev/null; then
+    echo "✓ Touch listener service disabled"
+fi
+
+if sudo rm -f /etc/systemd/system/neopixel-touch-listener.service 2>/dev/null; then
+    echo "✓ Touch listener service file removed"
+else
+    echo "⚠ Warning: Could not remove touch listener service file (may need sudo)"
+fi
+
+if sudo systemctl daemon-reload 2>/dev/null; then
+    echo "✓ Systemd daemon reloaded"
 fi
 
 # Remove event hooks we created

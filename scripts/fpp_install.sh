@@ -25,7 +25,8 @@ chmod 755 /home/fpp/media/config
 POLLER_SCRIPT="$PLUGIN_DIR/scripts/status_poller.sh"
 TOUCH_SCRIPT="$PLUGIN_DIR/scripts/touch_listener.sh"
 TEST_SCRIPT="$PLUGIN_DIR/scripts/test_status_methods.sh"
-SERVICE_FILE="$PLUGIN_DIR/scripts/neopixel-status-poller.service"
+POLLER_SERVICE_FILE="$PLUGIN_DIR/scripts/neopixel-status-poller.service"
+TOUCH_SERVICE_FILE="$PLUGIN_DIR/scripts/neopixel-touch-listener.service"
 SYSTEMD_DIR="/etc/systemd/system"
 
 if [ -f "$POLLER_SCRIPT" ]; then
@@ -41,14 +42,14 @@ if [ -f "$TEST_SCRIPT" ]; then
     echo "✓ Status test script is executable"
 fi
 
-# Set up systemd service for automatic startup
-if [ -f "$SERVICE_FILE" ]; then
+# Set up systemd service for status poller
+if [ -f "$POLLER_SERVICE_FILE" ]; then
     echo ""
-    echo "Setting up systemd service for automatic startup..."
+    echo "Setting up systemd service for status poller..."
     
     # Copy service file to systemd directory
-    if sudo cp "$SERVICE_FILE" "$SYSTEMD_DIR/neopixel-status-poller.service" 2>/dev/null; then
-        echo "✓ Service file installed to $SYSTEMD_DIR"
+    if sudo cp "$POLLER_SERVICE_FILE" "$SYSTEMD_DIR/neopixel-status-poller.service" 2>/dev/null; then
+        echo "✓ Status poller service file installed to $SYSTEMD_DIR"
         
         # Reload systemd
         if sudo systemctl daemon-reload 2>/dev/null; then
@@ -56,31 +57,71 @@ if [ -f "$SERVICE_FILE" ]; then
             
             # Enable service to start on boot
             if sudo systemctl enable neopixel-status-poller.service 2>/dev/null; then
-                echo "✓ Service enabled for automatic startup"
+                echo "✓ Status poller service enabled for automatic startup"
             else
-                echo "⚠ Warning: Could not enable service (may need sudo)"
+                echo "⚠ Warning: Could not enable status poller service (may need sudo)"
             fi
             
             # Start the service now
             if sudo systemctl start neopixel-status-poller.service 2>/dev/null; then
-                echo "✓ Service started"
+                echo "✓ Status poller service started"
             else
-                echo "⚠ Warning: Could not start service (may need sudo)"
-                echo "  You can start it manually with: sudo systemctl start neopixel-status-poller"
+                echo "⚠ Warning: Could not start status poller service (may need sudo)"
+                echo "  You can start it manually with: sudo systemctl start neopixel-status-poller.service"
             fi
         else
             echo "⚠ Warning: Could not reload systemd (may need sudo)"
         fi
     else
-        echo "⚠ Warning: Could not install service file (may need sudo)"
+        echo "⚠ Warning: Could not install status poller service file (may need sudo)"
         echo "  You can install it manually:"
-        echo "    sudo cp $SERVICE_FILE $SYSTEMD_DIR/"
+        echo "    sudo cp $POLLER_SERVICE_FILE $SYSTEMD_DIR/"
         echo "    sudo systemctl daemon-reload"
-        echo "    sudo systemctl enable neopixel-status-poller"
-        echo "    sudo systemctl start neopixel-status-poller"
+        echo "    sudo systemctl enable neopixel-status-poller.service"
+        echo "    sudo systemctl start neopixel-status-poller.service"
     fi
 else
-    echo "⚠ Warning: Service file not found: $SERVICE_FILE"
+    echo "⚠ Warning: Status poller service file not found: $POLLER_SERVICE_FILE"
+fi
+
+# Set up systemd service for touch listener
+if [ -f "$TOUCH_SERVICE_FILE" ]; then
+    echo ""
+    echo "Setting up systemd service for touch listener..."
+    
+    # Copy service file to systemd directory
+    if sudo cp "$TOUCH_SERVICE_FILE" "$SYSTEMD_DIR/neopixel-touch-listener.service" 2>/dev/null; then
+        echo "✓ Touch listener service file installed to $SYSTEMD_DIR"
+        
+        # Reload systemd (if not already done)
+        if sudo systemctl daemon-reload 2>/dev/null; then
+            echo "✓ Systemd daemon reloaded"
+        fi
+        
+        # Enable service to start on boot
+        if sudo systemctl enable neopixel-touch-listener.service 2>/dev/null; then
+            echo "✓ Touch listener service enabled for automatic startup"
+        else
+            echo "⚠ Warning: Could not enable touch listener service (may need sudo)"
+        fi
+        
+        # Start the service now
+        if sudo systemctl start neopixel-touch-listener.service 2>/dev/null; then
+            echo "✓ Touch listener service started"
+        else
+            echo "⚠ Warning: Could not start touch listener service (may need sudo)"
+            echo "  You can start it manually with: sudo systemctl start neopixel-touch-listener.service"
+        fi
+    else
+        echo "⚠ Warning: Could not install touch listener service file (may need sudo)"
+        echo "  You can install it manually:"
+        echo "    sudo cp $TOUCH_SERVICE_FILE $SYSTEMD_DIR/"
+        echo "    sudo systemctl daemon-reload"
+        echo "    sudo systemctl enable neopixel-touch-listener.service"
+        echo "    sudo systemctl start neopixel-touch-listener.service"
+    fi
+else
+    echo "⚠ Warning: Touch listener service file not found: $TOUCH_SERVICE_FILE"
 fi
 
 # Test that callbacks.sh can be executed
