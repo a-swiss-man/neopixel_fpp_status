@@ -17,6 +17,39 @@ function log_message($message) {
     file_put_contents($logFile, "$timestamp - $message\n", FILE_APPEND);
 }
 
+// Handle service control
+$serviceMessage = "";
+$serviceMessageType = "";
+
+if (isset($_POST['service_action'])) {
+    $action = isset($_POST['service_action']) ? trim($_POST['service_action']) : "";
+    $serviceName = "neopixel-status-poller.service";
+    
+    if (in_array($action, array('start', 'stop', 'restart', 'status'))) {
+        $output = array();
+        $returnVar = 0;
+        exec("sudo systemctl $action $serviceName 2>&1", $output, $returnVar);
+        
+        if ($returnVar == 0) {
+            if ($action == 'status') {
+                $statusOutput = array();
+                exec("systemctl is-active $serviceName 2>&1", $statusOutput);
+                $isActive = implode("", $statusOutput);
+                $serviceMessage = "Service status: <strong>$isActive</strong>";
+            } else {
+                $serviceMessage = "Service $action command executed successfully.";
+            }
+            $serviceMessageType = "success";
+            log_message("Service $action executed");
+        } else {
+            $errorOutput = implode("\n", array_slice($output, -3));
+            $serviceMessage = "Error executing service $action command.<br><small>Error: " . htmlspecialchars($errorOutput) . "</small>";
+            $serviceMessageType = "error";
+            log_message("Service $action failed: " . implode(" ", $output));
+        }
+    }
+}
+
 // Handle test command
 $testMessage = "";
 $testMessageType = "";
@@ -180,6 +213,68 @@ foreach ($commonDevices as $device) {
             <input type="submit" name="save_config" value="Save Configuration" class="buttons">
             <input type="button" value="Refresh Device List" onclick="location.reload();" class="buttons">
         </form>
+    </fieldset>
+    
+    <fieldset>
+        <legend>Status Poller Service</legend>
+        <p>Control the status poller service that monitors FPP and updates the Trinkey.</p>
+        
+        <?php if ($serviceMessage): ?>
+            <div class="alert alert-<?php echo $serviceMessageType; ?>" style="padding: 10px; margin: 10px 0; border: 1px solid #ccc; background-color: <?php echo $serviceMessageType == 'success' ? '#d4edda' : '#f8d7da'; ?>; color: <?php echo $serviceMessageType == 'success' ? '#155724' : '#721c24'; ?>;">
+                <?php echo $serviceMessage; ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php
+        // Check service status
+        $serviceName = "neopixel-status-poller.service";
+        $serviceStatus = "unknown";
+        $isActive = false;
+        $isEnabled = false;
+        
+        $output = array();
+        exec("systemctl is-active $serviceName 2>&1", $output);
+        $serviceStatus = implode("", $output);
+        $isActive = ($serviceStatus == "active");
+        
+        $output = array();
+        exec("systemctl is-enabled $serviceName 2>&1", $output);
+        $enabledStatus = implode("", $output);
+        $isEnabled = ($enabledStatus == "enabled");
+        ?>
+        
+        <table style="width: 100%; margin: 10px 0;">
+            <tr>
+                <td style="padding: 5px;"><strong>Service Status:</strong></td>
+                <td style="padding: 5px;">
+                    <?php if ($isActive): ?>
+                        <span style="color: green;">● Running</span>
+                    <?php else: ?>
+                        <span style="color: red;">● Stopped</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 5px;"><strong>Auto-Start:</strong></td>
+                <td style="padding: 5px;">
+                    <?php if ($isEnabled): ?>
+                        <span style="color: green;">● Enabled (starts on boot)</span>
+                    <?php else: ?>
+                        <span style="color: orange;">● Disabled</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        </table>
+        
+        <form method="post" action="" style="margin: 10px 0;">
+            <input type="submit" name="service_action" value="start" class="buttons" <?php echo $isActive ? 'disabled' : ''; ?>>
+            <input type="submit" name="service_action" value="stop" class="buttons" <?php echo !$isActive ? 'disabled' : ''; ?>>
+            <input type="submit" name="service_action" value="restart" class="buttons">
+            <input type="submit" name="service_action" value="status" class="buttons">
+        </form>
+        
+        <p><small><i>Note: The status poller automatically monitors FPP status and updates the Trinkey. 
+        It runs as a systemd service and will automatically start on boot if enabled.</i></small></p>
     </fieldset>
     
     <fieldset>

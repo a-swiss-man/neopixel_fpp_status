@@ -1,0 +1,19 @@
+[Unit]
+Description=NeoPixel Trinkey Status Poller for FPP
+After=network.target fppd.service
+Requires=fppd.service
+
+[Service]
+Type=simple
+User=fpp
+Group=fpp
+WorkingDirectory=/home/fpp/media/plugins/neopixel_fpp_status
+ExecStart=/home/fpp/media/plugins/neopixel_fpp_status/scripts/status_poller.sh
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/fpp/media/logs/neopixel_status.log
+StandardError=append:/home/fpp/media/logs/neopixel_status.log
+
+[Install]
+WantedBy=multi-user.target
+

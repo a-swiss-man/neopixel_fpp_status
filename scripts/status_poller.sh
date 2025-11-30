@@ -28,19 +28,20 @@ get_status_via_fpp_command() {
     return 1
 }
 
-# Method 2: Use FPP REST API
+# Method 2: Use FPP REST API (PRIMARY METHOD - we know this works!)
 get_status_via_api() {
-    # Try FPP's REST API endpoint
-    # FPP web server typically runs on port 80 or 32320
-    for port in 80 32320; do
-        for host in localhost 127.0.0.1; do
-            STATUS=$(curl -s "http://${host}:${port}/api/fppd/status" 2>/dev/null)
-            if [ -n "$STATUS" ] && [ "$STATUS" != "null" ] && [ "$STATUS" != "{}" ]; then
-                echo "$STATUS"
-                return 0
-            fi
-        done
-    done
+    # FPP REST API endpoint - we know localhost:80 works
+    STATUS=$(curl -s "http://localhost:80/api/fppd/status" 2>/dev/null)
+    if [ -n "$STATUS" ] && [ "$STATUS" != "null" ] && [ "$STATUS" != "{}" ]; then
+        echo "$STATUS"
+        return 0
+    fi
+    # Fallback to 127.0.0.1
+    STATUS=$(curl -s "http://127.0.0.1:80/api/fppd/status" 2>/dev/null)
+    if [ -n "$STATUS" ] && [ "$STATUS" != "null" ] && [ "$STATUS" != "{}" ]; then
+        echo "$STATUS"
+        return 0
+    fi
     return 1
 }
 
@@ -75,16 +76,17 @@ get_status_via_process() {
 
 # Main function to get FPP status
 get_fpp_status() {
-    # Try methods in order of reliability
-    STATUS=$(get_status_via_fpp_command)
-    if [ $? -eq 0 ] && [ -n "$STATUS" ]; then
-        echo "COMMAND:$STATUS"
-        return 0
-    fi
-    
+    # Use REST API first (we know it works!)
     STATUS=$(get_status_via_api)
     if [ $? -eq 0 ] && [ -n "$STATUS" ]; then
         echo "API:$STATUS"
+        return 0
+    fi
+    
+    # Fallback to other methods
+    STATUS=$(get_status_via_fpp_command)
+    if [ $? -eq 0 ] && [ -n "$STATUS" ]; then
+        echo "COMMAND:$STATUS"
         return 0
     fi
     
@@ -121,21 +123,39 @@ determine_status() {
         return
     fi
     
-    # Method 2: API JSON response
+    # Method 2: API JSON response (PRIMARY METHOD)
     if [ "$method" = "API" ]; then
-        # Parse JSON - look for status_name, status, or playing indicators
-        if echo "$data" | grep -qi '"status_name"[[:space:]]*:[[:space:]]*"playing"'; then
-            echo "P"
-        elif echo "$data" | grep -qi '"status"[[:space:]]*:[[:space:]]*[^0]' && echo "$data" | grep -qi '"playlist"'; then
-            echo "P"
-        elif echo "$data" | grep -qi '"current_playlist"[[:space:]]*:[[:space:]]*"[^"]*"'; then
-            echo "P"
-        elif echo "$data" | grep -qi '"status_name"[[:space:]]*:[[:space:]]*"idle"'; then
-            echo "I"
-        else
-            echo "I"
-        fi
-        return
+        # Parse JSON - the API returns "status_name" field with values like "idle", "playing", etc.
+        # Extract status_name value using grep and sed
+        STATUS_NAME=$(echo "$data" | grep -o '"status_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"status_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+        
+        case "$STATUS_NAME" in
+            "playing")
+                echo "P"
+                return
+                ;;
+            "idle")
+                echo "I"
+                return
+                ;;
+            "stopped")
+                echo "I"
+                return
+                ;;
+            *)
+                # If status_name not found or unknown, check other indicators
+                if echo "$data" | grep -qi '"current_playlist"[[:space:]]*:[[:space:]]*"[^"]*"' && ! echo "$data" | grep -qi '"count"[[:space:]]*:[[:space:]]*"0"'; then
+                    echo "P"  # Has active playlist
+                    return
+                elif echo "$data" | grep -qi '"current_sequence"[[:space:]]*:[[:space:]]*"[^"]*"'; then
+                    echo "P"  # Has active sequence
+                    return
+                else
+                    echo "I"  # Default to idle
+                    return
+                fi
+                ;;
+        esac
     fi
     
     # Method 3: Status file

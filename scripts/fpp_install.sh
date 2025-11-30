@@ -24,6 +24,9 @@ chmod 755 /home/fpp/media/config
 # Make status poller and test scripts executable (backup method if callbacks don't work)
 POLLER_SCRIPT="$PLUGIN_DIR/scripts/status_poller.sh"
 TEST_SCRIPT="$PLUGIN_DIR/scripts/test_status_methods.sh"
+SERVICE_FILE="$PLUGIN_DIR/scripts/neopixel-status-poller.service"
+SYSTEMD_DIR="/etc/systemd/system"
+
 if [ -f "$POLLER_SCRIPT" ]; then
     chmod +x "$POLLER_SCRIPT"
     echo "✓ Status poller script is executable"
@@ -31,6 +34,48 @@ fi
 if [ -f "$TEST_SCRIPT" ]; then
     chmod +x "$TEST_SCRIPT"
     echo "✓ Status test script is executable"
+fi
+
+# Set up systemd service for automatic startup
+if [ -f "$SERVICE_FILE" ]; then
+    echo ""
+    echo "Setting up systemd service for automatic startup..."
+    
+    # Copy service file to systemd directory
+    if sudo cp "$SERVICE_FILE" "$SYSTEMD_DIR/neopixel-status-poller.service" 2>/dev/null; then
+        echo "✓ Service file installed to $SYSTEMD_DIR"
+        
+        # Reload systemd
+        if sudo systemctl daemon-reload 2>/dev/null; then
+            echo "✓ Systemd daemon reloaded"
+            
+            # Enable service to start on boot
+            if sudo systemctl enable neopixel-status-poller.service 2>/dev/null; then
+                echo "✓ Service enabled for automatic startup"
+            else
+                echo "⚠ Warning: Could not enable service (may need sudo)"
+            fi
+            
+            # Start the service now
+            if sudo systemctl start neopixel-status-poller.service 2>/dev/null; then
+                echo "✓ Service started"
+            else
+                echo "⚠ Warning: Could not start service (may need sudo)"
+                echo "  You can start it manually with: sudo systemctl start neopixel-status-poller"
+            fi
+        else
+            echo "⚠ Warning: Could not reload systemd (may need sudo)"
+        fi
+    else
+        echo "⚠ Warning: Could not install service file (may need sudo)"
+        echo "  You can install it manually:"
+        echo "    sudo cp $SERVICE_FILE $SYSTEMD_DIR/"
+        echo "    sudo systemctl daemon-reload"
+        echo "    sudo systemctl enable neopixel-status-poller"
+        echo "    sudo systemctl start neopixel-status-poller"
+    fi
+else
+    echo "⚠ Warning: Service file not found: $SERVICE_FILE"
 fi
 
 # Test that callbacks.sh can be executed
