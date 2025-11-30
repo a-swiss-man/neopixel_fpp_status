@@ -21,11 +21,16 @@ chmod 666 "$LOG_FILE"
 mkdir -p /home/fpp/media/config
 chmod 755 /home/fpp/media/config
 
-# Make status poller executable (backup method if callbacks don't work)
+# Make status poller and test scripts executable (backup method if callbacks don't work)
 POLLER_SCRIPT="$PLUGIN_DIR/scripts/status_poller.sh"
+TEST_SCRIPT="$PLUGIN_DIR/scripts/test_status_methods.sh"
 if [ -f "$POLLER_SCRIPT" ]; then
     chmod +x "$POLLER_SCRIPT"
     echo "✓ Status poller script is executable"
+fi
+if [ -f "$TEST_SCRIPT" ]; then
+    chmod +x "$TEST_SCRIPT"
+    echo "✓ Status test script is executable"
 fi
 
 # Test that callbacks.sh can be executed
