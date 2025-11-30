@@ -5,27 +5,39 @@
 
 echo "Installing NeoPixel Trinkey Status Plugin..."
 
-
+PLUGIN_DIR="/home/fpp/media/plugins/neopixel_fpp_status"
+CALLBACKS_SCRIPT="$PLUGIN_DIR/callbacks.sh"
+LOG_FILE="/home/fpp/media/logs/neopixel_status.log"
 
 # Ensure the callbacks script is executable
-chmod +x /home/fpp/media/plugins/neopixel_fpp_status/callbacks.sh
+chmod +x "$CALLBACKS_SCRIPT"
 
-# In FPP, we usually need to register callbacks if they aren't automatically picked up.
-# However, for this simple plugin, we might rely on FPP's standard callback mechanism 
-# if we name the file correctly or place it in a specific folder.
-# But often plugins use a 'callbacks.sh' that is called by the main FPP daemon if registered.
+# Create log file if it doesn't exist
+touch "$LOG_FILE"
+chmod 666 "$LOG_FILE"
 
-# For FPP 6+, we can use the plugin callback registration system if needed.
-# For now, we'll assume the user might need to configure something or FPP picks it up.
-# Actually, FPP plugins often have a 'callbacks.sh' in the root which is NOT automatically called
-# unless registered.
+# Create config directory if it doesn't exist
+mkdir -p /home/fpp/media/config
+chmod 755 /home/fpp/media/config
 
-# Let's register the callback for playlist start/stop events.
-# This usually involves adding to /home/fpp/media/events or similar, 
-# but the modern way is via the plugin system.
+# Test that callbacks.sh can be executed
+if [ -x "$CALLBACKS_SCRIPT" ]; then
+    echo "✓ Callbacks script is executable"
+    # Test the --list functionality
+    if "$CALLBACKS_SCRIPT" --list > /dev/null 2>&1; then
+        echo "✓ Callbacks script responds to --list query"
+    else
+        echo "⚠ Warning: Callbacks script may have issues"
+    fi
+else
+    echo "✗ Error: Callbacks script is not executable"
+fi
 
-# For simplicity in this "fresh start", we will just ensure permissions.
-# The user might need to manually trigger it or we rely on FPP's plugin architecture 
-# to source 'callbacks.sh' if it exists (which it does).
-
+echo ""
 echo "Installation Complete."
+echo ""
+echo "Note: FPP should automatically detect and use callbacks.sh"
+echo "      If events are not being received, check:"
+echo "      1. Plugin is enabled in FPP web interface"
+echo "      2. Check log file: $LOG_FILE"
+echo "      3. Test manually: $CALLBACKS_SCRIPT fppd start"

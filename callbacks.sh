@@ -12,6 +12,9 @@ log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
+# Log script execution for debugging
+log_message "callbacks.sh executed with args: $@"
+
 # Function to get configured device from config file
 get_configured_device() {
     if [ -f "$CONFIG_FILE" ]; then

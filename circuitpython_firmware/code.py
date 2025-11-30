@@ -53,6 +53,17 @@ set_color(COLOR_IDLE)
 # Valid status characters
 VALID_STATUSES = ["I", "P", "S", "E", "R"]
 
+# Flush any garbage data from serial port during startup
+# Wait a moment for the system to stabilize, then flush any pending data
+time.sleep(1.0)
+# Clear any pending serial input that might be garbage from boot
+while supervisor.runtime.serial_bytes_available:
+    try:
+        sys.stdin.read(1)  # Discard any pending data
+    except:
+        break
+print("Startup flush complete, ready for commands")
+
 while True:
     # Check for serial input
     if supervisor.runtime.serial_bytes_available:
@@ -80,11 +91,14 @@ while True:
     elif current_status == "S": # Stopped
         set_color(COLOR_STOPPED)
     elif current_status == "E": # Error
-        # Flash Red
+        # Flash Red (but we don't actually use this status, so this shouldn't happen)
+        # If it does, it means we received garbage data interpreted as "E"
         set_color(COLOR_STOPPED)
         time.sleep(0.5)
         set_color(COLOR_OFF)
         time.sleep(0.5)
+        # Reset to idle after error flash
+        current_status = "I"
         continue # Skip the main sleep
     elif current_status == "R": # Rainbow (Demo)
         rainbow_cycle(0.01)
