@@ -217,6 +217,40 @@ case "$TYPE" in
             exit 1
         fi
         ;;
+    "brightness")
+        # Brightness mode: ACTION contains the brightness value (0-100)
+        BRIGHTNESS=$ACTION
+        if [ -n "$BRIGHTNESS" ] && [[ "$BRIGHTNESS" =~ ^[0-9]+$ ]] && [ "$BRIGHTNESS" -ge 0 ] && [ "$BRIGHTNESS" -le 100 ]; then
+            log_message "Setting brightness to $BRIGHTNESS%"
+            DEVICE=$(find_device)
+            
+            if [ -z "$DEVICE" ]; then
+                log_message "Error: NeoPixel Trinkey not found."
+                exit 1
+            fi
+            
+            # Verify device exists and is writable
+            if [ ! -w "$DEVICE" ]; then
+                log_message "Error: Device $DEVICE is not writable."
+                exit 1
+            fi
+            
+            # Configure stty
+            stty -F "$DEVICE" 115200 raw -echo -echoe -echok 2>/dev/null
+            
+            # Send brightness command: "B" followed by 3-digit brightness (e.g., "B030" for 30%)
+            BRIGHTNESS_STR=$(printf "B%03d" "$BRIGHTNESS")
+            if printf '%s' "$BRIGHTNESS_STR" > "$DEVICE" 2>&1; then
+                log_message "Successfully sent brightness command '$BRIGHTNESS_STR' to $DEVICE"
+            else
+                log_message "Error sending brightness command to $DEVICE"
+                exit 1
+            fi
+        else
+            log_message "Brightness mode: Invalid brightness value '$BRIGHTNESS' (must be 0-100)"
+            exit 1
+        fi
+        ;;
     "playlist")
         if [ "$ACTION" == "start" ]; then
             send_status "P" # Playing

@@ -90,12 +90,41 @@ if (isset($_POST['test_command'])) {
     }
 }
 
+// Handle brightness update
+$brightnessMessage = "";
+$brightnessMessageType = "";
+
+if (isset($_POST['set_brightness'])) {
+    $brightness = isset($_POST['brightness']) ? intval($_POST['brightness']) : 30;
+    $brightness = max(0, min(100, $brightness)); // Clamp between 0-100
+    
+    $pluginDir = "/home/fpp/media/plugins/neopixel_fpp_status";
+    $callbackScript = "$pluginDir/callbacks.sh";
+    
+    $output = array();
+    $returnVar = 0;
+    exec("$callbackScript brightness $brightness 2>&1", $output, $returnVar);
+    
+    if ($returnVar == 0) {
+        $brightnessMessage = "Brightness set to $brightness% successfully!";
+        $brightnessMessageType = "success";
+        log_message("Brightness set to $brightness%");
+    } else {
+        $errorOutput = implode("\n", array_slice($output, -3));
+        $brightnessMessage = "Error setting brightness.<br><small>Error: " . htmlspecialchars($errorOutput) . "</small>";
+        $brightnessMessageType = "error";
+        log_message("Brightness setting failed: " . implode(" ", $output));
+    }
+}
+
 // Handle form submission
 $message = "";
 $messageType = "";
 
 if (isset($_POST['save_config'])) {
     $device = isset($_POST['device']) ? trim($_POST['device']) : "";
+    $brightness = isset($_POST['config_brightness']) ? intval($_POST['config_brightness']) : 30;
+    $brightness = max(0, min(100, $brightness)); // Clamp between 0-100
     
     // Validate device path if provided
     if (!empty($device)) {
@@ -109,13 +138,14 @@ if (isset($_POST['save_config'])) {
     // Save configuration
     $config = "[neopixel_status]\n";
     $config .= "device = " . ($device ? $device : "") . "\n";
+    $config .= "brightness = $brightness\n";
     
     if (file_put_contents($configFile, $config)) {
         if (empty($message)) {
             $message = "Configuration saved successfully.";
             $messageType = "success";
         }
-        log_message("Configuration updated. Device: " . ($device ? $device : "Auto-detect"));
+        log_message("Configuration updated. Device: " . ($device ? $device : "Auto-detect") . ", Brightness: $brightness%");
     } else {
         $message = "Error: Could not save configuration file.";
         $messageType = "error";
@@ -124,10 +154,32 @@ if (isset($_POST['save_config'])) {
 
 // Load current configuration
 $currentDevice = "";
+$currentBrightness = 30; // Default brightness
 if (file_exists($configFile)) {
     $config = parse_ini_file($configFile);
     if (isset($config['device']) && !empty($config['device'])) {
         $currentDevice = $config['device'];
+    }
+    if (isset($config['brightness'])) {
+        $currentBrightness = intval($config['brightness']);
+        $currentBrightness = max(0, min(100, $currentBrightness)); // Clamp
+    }
+}
+
+// Load log content for display
+$logContent = "";
+if (file_exists($logFile)) {
+    $logContent = file_get_contents($logFile);
+} else {
+    $logContent = "Log file not found.";
+}
+
+// Handle log clear
+if (isset($_POST['clear_log'])) {
+    if (file_exists($logFile)) {
+        file_put_contents($logFile, "");
+        echo "<script>$.jGrowl('Log cleared');</script>";
+        $logContent = "";
     }
 }
 
@@ -206,12 +258,52 @@ foreach ($commonDevices as $device) {
                                    onchange="document.getElementById('device').value = this.value;">
                         </td>
                     </tr>
+                    <tr>
+                        <td><label for="config_brightness">Brightness:</label></td>
+                        <td>
+                            <input type="range" name="config_brightness" id="config_brightness" 
+                                   min="0" max="100" value="<?php echo $currentBrightness; ?>" 
+                                   oninput="document.getElementById('brightness_value').textContent = this.value + '%'"
+                                   style="width: 300px;">
+                            <span id="brightness_value" style="margin-left: 10px;"><?php echo $currentBrightness; ?>%</span>
+                            <br><small>Adjust the brightness of the NeoPixel LEDs (0-100%)</small>
+                        </td>
+                    </tr>
                 </table>
             </fieldset>
             
             <br>
             <input type="submit" name="save_config" value="Save Configuration" class="buttons">
             <input type="button" value="Refresh Device List" onclick="location.reload();" class="buttons">
+        </form>
+    </fieldset>
+    
+    <fieldset>
+        <legend>Brightness Control</legend>
+        <p>Quick brightness adjustment - changes take effect immediately.</p>
+        
+        <?php if ($brightnessMessage): ?>
+            <div class="alert alert-<?php echo $brightnessMessageType; ?>" style="padding: 10px; margin: 10px 0; border: 1px solid #ccc; background-color: <?php echo $brightnessMessageType == 'success' ? '#d4edda' : '#f8d7da'; ?>; color: <?php echo $brightnessMessageType == 'success' ? '#155724' : '#721c24'; ?>;">
+                <?php echo $brightnessMessage; ?>
+            </div>
+        <?php endif; ?>
+        
+        <form method="post" action="" style="margin: 10px 0;">
+            <table>
+                <tr>
+                    <td style="padding: 5px;"><label for="brightness">Brightness:</label></td>
+                    <td style="padding: 5px;">
+                        <input type="range" name="brightness" id="brightness" 
+                               min="0" max="100" value="<?php echo $currentBrightness; ?>" 
+                               oninput="document.getElementById('brightness_display').textContent = this.value + '%'"
+                               style="width: 300px;">
+                        <span id="brightness_display" style="margin-left: 10px;"><?php echo $currentBrightness; ?>%</span>
+                    </td>
+                    <td style="padding: 5px;">
+                        <input type="submit" name="set_brightness" value="Set Brightness" class="buttons">
+                    </td>
+                </tr>
+            </table>
         </form>
     </fieldset>
     
@@ -336,18 +428,154 @@ foreach ($commonDevices as $device) {
     </fieldset>
     
     <fieldset>
-        <legend>Current Configuration</legend>
-        <p><b>Config File:</b> <code><?php echo $configFile; ?></code></p>
-        <p><b>Current Device Setting:</b> 
-            <code><?php echo empty($currentDevice) ? 'Auto-detect' : htmlspecialchars($currentDevice); ?></code>
-        </p>
-        <?php if (file_exists($configFile)): ?>
-            <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd;"><?php echo htmlspecialchars(file_get_contents($configFile)); ?></pre>
-        <?php else: ?>
-            <p><i>No configuration file found. Using default (auto-detect).</i></p>
-        <?php endif; ?>
+        <legend onclick="toggleSection('config_section')" style="cursor: pointer;">
+            Current Configuration <span id="config_toggle">▼</span>
+        </legend>
+        <div id="config_section" style="display: none;">
+            <p><b>Config File:</b> <code><?php echo $configFile; ?></code></p>
+            <p><b>Current Device Setting:</b> 
+                <code><?php echo empty($currentDevice) ? 'Auto-detect' : htmlspecialchars($currentDevice); ?></code>
+            </p>
+            <p><b>Current Brightness:</b> 
+                <code><?php echo $currentBrightness; ?>%</code>
+            </p>
+            <?php if (file_exists($configFile)): ?>
+                <pre style="background: #f5f5f5; padding: 10px; border: 1px solid #ddd;"><?php echo htmlspecialchars(file_get_contents($configFile)); ?></pre>
+            <?php else: ?>
+                <p><i>No configuration file found. Using default (auto-detect).</i></p>
+            <?php endif; ?>
+        </div>
+    </fieldset>
+    
+    <fieldset>
+        <legend onclick="toggleSection('log_section')" style="cursor: pointer;">
+            Log Viewer <span id="log_toggle">▼</span>
+        </legend>
+        <div id="log_section" style="display: none;">
+            <p><b>Log File:</b> <code><?php echo $logFile; ?></code></p>
+            <form method="post" action="">
+                <textarea style="width: 100%; height: 400px; font-family: monospace; font-size: 12px;" readonly><?php echo htmlspecialchars($logContent); ?></textarea>
+                <br><br>
+                <input type="submit" name="clear_log" value="Clear Log" class="buttons">
+                <input type="button" value="Refresh" onclick="location.reload();" class="buttons">
+            </form>
+        </div>
+    </fieldset>
+    
+    <fieldset>
+        <legend onclick="toggleSection('diagnostics_section')" style="cursor: pointer;">
+            Diagnostics <span id="diagnostics_toggle">▼</span>
+        </legend>
+        <div id="diagnostics_section" style="display: none;">
+            <p><b>Callback Registration Status:</b></p>
+            <?php
+            $pluginDir = "/home/fpp/media/plugins/neopixel_fpp_status";
+            $callbackScript = "$pluginDir/callbacks.sh";
+            $issues = array();
+            $success = array();
+            
+            // Check if callbacks.sh exists
+            if (file_exists($callbackScript)) {
+                $success[] = "✓ callbacks.sh exists at: $callbackScript";
+                
+                // Check if it's executable
+                if (is_executable($callbackScript)) {
+                    $success[] = "✓ callbacks.sh is executable";
+                } else {
+                    $issues[] = "✗ callbacks.sh is NOT executable (run: chmod +x $callbackScript)";
+                }
+                
+                // Test --list functionality
+                $output = array();
+                $returnVar = 0;
+                exec("$callbackScript --list 2>&1", $output, $returnVar);
+                if ($returnVar == 0 && count($output) > 0) {
+                    $success[] = "✓ callbacks.sh responds to --list query";
+                    $success[] = "  Events registered: " . implode(", ", $output);
+                } else {
+                    $issues[] = "✗ callbacks.sh does not respond correctly to --list";
+                }
+            } else {
+                $issues[] = "✗ callbacks.sh NOT FOUND at: $callbackScript";
+            }
+            
+            // Check if plugin is in the right location
+            if (is_dir($pluginDir)) {
+                $success[] = "✓ Plugin directory exists: $pluginDir";
+            } else {
+                $issues[] = "✗ Plugin directory NOT FOUND: $pluginDir";
+            }
+            
+            // Check recent log entries for callback executions
+            $recentLogs = array_slice(explode("\n", $logContent), -20);
+            $hasCallbacks = false;
+            foreach ($recentLogs as $line) {
+                if (strpos($line, "callbacks.sh executed") !== false || 
+                    strpos($line, "Event received") !== false) {
+                    $hasCallbacks = true;
+                    break;
+                }
+            }
+            
+            if ($hasCallbacks) {
+                $success[] = "✓ Recent log entries show callback executions";
+            } else {
+                $issues[] = "⚠ No recent callback executions found in log (FPP may not be calling callbacks.sh)";
+            }
+            
+            // Display results
+            if (count($success) > 0) {
+                echo "<div style='color: green; margin: 10px 0;'>";
+                foreach ($success as $msg) {
+                    echo "<div>" . htmlspecialchars($msg) . "</div>";
+                }
+                echo "</div>";
+            }
+            
+            if (count($issues) > 0) {
+                echo "<div style='color: red; margin: 10px 0;'>";
+                foreach ($issues as $msg) {
+                    echo "<div>" . htmlspecialchars($msg) . "</div>";
+                }
+                echo "</div>";
+            }
+            
+            if (count($success) > 0 && count($issues) == 0) {
+                echo "<p style='color: orange;'><b>Note:</b> If callbacks still aren't working, you may need to:</p>";
+                echo "<ul style='color: orange;'>";
+                echo "<li>Restart FPPD after plugin installation</li>";
+                echo "<li>Ensure the plugin is enabled in FPP Settings</li>";
+                echo "<li>Check FPP's main log for plugin-related errors</li>";
+                echo "</ul>";
+            }
+            ?>
+        </div>
     </fieldset>
 </div>
+
+<script>
+// Toggle collapsible sections
+function toggleSection(sectionId) {
+    var section = document.getElementById(sectionId);
+    var toggle = document.getElementById(sectionId.replace('_section', '_toggle'));
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        toggle.textContent = '▲';
+    } else {
+        section.style.display = 'none';
+        toggle.textContent = '▼';
+    }
+}
+
+// Sync custom input with dropdown
+document.getElementById('device').addEventListener('change', function() {
+    var selectedValue = this.value;
+    var customInput = document.getElementById('device_custom');
+    if (selectedValue && !Array.from(this.options).some(opt => opt.value === selectedValue && opt.text !== '<?php echo $autoDetectOption['text']; ?>')) {
+        customInput.value = selectedValue;
+    }
+});
+</script>
 
 <script>
 // Sync custom input with dropdown

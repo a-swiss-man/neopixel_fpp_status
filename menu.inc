@@ -9,12 +9,6 @@
 
 $menuEntries = Array(
 	Array(
-		'text' => 'NeoPixel Status - Log Viewer',
-		'type' => 'status',
-		'page' => 'status.php',
-		'wrap' => 1
-	),
-	Array(
 		'text' => 'NeoPixel Status - Configuration',
 		'type' => 'status',
 		'page' => 'config.php',

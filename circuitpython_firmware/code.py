@@ -8,7 +8,8 @@ import sys
 # Trinkey has 4 NeoPixels
 pixel_pin = board.NEOPIXEL
 num_pixels = 4
-pixels = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=0.3, auto_write=False)
+current_brightness = 0.3  # Default brightness (30%)
+pixels = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=current_brightness, auto_write=False)
 
 # Colors
 COLOR_IDLE = (0, 0, 255)      # Blue
@@ -71,14 +72,39 @@ while True:
             # Read one byte
             input_char = sys.stdin.read(1)
             if input_char:
-                # Strip whitespace and newlines, but keep the character
-                cleaned_char = input_char.strip()
-                # Only update status if we got a valid status character
-                if cleaned_char in VALID_STATUSES:
-                    current_status = cleaned_char
-                    print(f"Received status: {current_status}")
-                elif input_char.strip():  # If it's not empty after strip but not valid
-                    print(f"Invalid status character received: '{input_char}' (ord: {ord(input_char)})")
+                # Check for brightness command (starts with "B")
+                if input_char == "B":
+                    # Read 3 more digits for brightness (0-100, padded to 3 digits)
+                    brightness_str = ""
+                    timeout = 0
+                    while len(brightness_str) < 3 and timeout < 10:
+                        if supervisor.runtime.serial_bytes_available:
+                            digit = sys.stdin.read(1)
+                            if digit.isdigit():
+                                brightness_str += digit
+                            else:
+                                break
+                        else:
+                            time.sleep(0.01)
+                            timeout += 1
+                    
+                    if len(brightness_str) == 3:
+                        brightness_value = int(brightness_str)
+                        # Convert 0-100 to 0.0-1.0
+                        current_brightness = brightness_value / 100.0
+                        pixels.brightness = current_brightness
+                        print(f"Brightness set to {brightness_value}% ({current_brightness})")
+                    else:
+                        print(f"Invalid brightness command format: B{brightness_str}")
+                else:
+                    # Strip whitespace and newlines, but keep the character
+                    cleaned_char = input_char.strip()
+                    # Only update status if we got a valid status character
+                    if cleaned_char in VALID_STATUSES:
+                        current_status = cleaned_char
+                        print(f"Received status: {current_status}")
+                    elif input_char.strip():  # If it's not empty after strip but not valid
+                        print(f"Invalid status character received: '{input_char}' (ord: {ord(input_char)})")
         except Exception as e:
             print(f"Error reading serial: {e}")
 
