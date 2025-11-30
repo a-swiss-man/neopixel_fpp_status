@@ -17,6 +17,46 @@ function log_message($message) {
     file_put_contents($logFile, "$timestamp - $message\n", FILE_APPEND);
 }
 
+// Handle test command
+$testMessage = "";
+$testMessageType = "";
+
+if (isset($_POST['test_command'])) {
+    $command = isset($_POST['test_command']) ? trim($_POST['test_command']) : "";
+    $pluginDir = "/home/fpp/media/plugins/neopixel_fpp_status";
+    $callbackScript = "$pluginDir/callbacks.sh";
+    
+    if (in_array($command, array('I', 'P', 'S', 'E', 'R'))) {
+        // Call the callback script with a special test mode
+        // We'll modify callbacks.sh to handle a "test" event type
+        $output = array();
+        $returnVar = 0;
+        exec("$callbackScript test $command 2>&1", $output, $returnVar);
+        
+        $statusNames = array(
+            'I' => 'Idle (Blue)',
+            'P' => 'Playing (Green)',
+            'S' => 'Stopped (Red)',
+            'E' => 'Error (Blinking Red)',
+            'R' => 'Rainbow (Demo)'
+        );
+        
+        if ($returnVar == 0) {
+            $testMessage = "Test command '{$statusNames[$command]}' sent successfully! Check your Trinkey to see the result.";
+            $testMessageType = "success";
+            log_message("Test command sent: $command");
+        } else {
+            $errorOutput = implode("\n", array_slice($output, -5)); // Last 5 lines
+            $testMessage = "Error sending test command '{$statusNames[$command]}'.<br><small>Error details: " . htmlspecialchars($errorOutput) . "</small>";
+            $testMessageType = "error";
+            log_message("Test command failed: $command - " . implode(" ", $output));
+        }
+    } else {
+        $testMessage = "Invalid test command.";
+        $testMessageType = "error";
+    }
+}
+
 // Handle form submission
 $message = "";
 $messageType = "";
@@ -140,6 +180,64 @@ foreach ($commonDevices as $device) {
             <input type="submit" name="save_config" value="Save Configuration" class="buttons">
             <input type="button" value="Refresh Device List" onclick="location.reload();" class="buttons">
         </form>
+    </fieldset>
+    
+    <fieldset>
+        <legend>Device Test</legend>
+        <p>Test communication with your NeoPixel Trinkey by sending status commands directly.</p>
+        
+        <?php if ($testMessage): ?>
+            <div class="alert alert-<?php echo $testMessageType; ?>" style="padding: 10px; margin: 10px 0; border: 1px solid #ccc; background-color: <?php echo $testMessageType == 'success' ? '#d4edda' : '#f8d7da'; ?>; color: <?php echo $testMessageType == 'success' ? '#155724' : '#721c24'; ?>;">
+                <?php echo nl2br(htmlspecialchars($testMessage)); ?>
+            </div>
+        <?php endif; ?>
+        
+        <form method="post" action="" style="margin: 10px 0;">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="padding: 5px;"><strong>Status Command:</strong></td>
+                    <td style="padding: 5px;"><strong>Color/Effect:</strong></td>
+                    <td style="padding: 5px;"><strong>Action:</strong></td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;"><code>I</code> - Idle</td>
+                    <td style="padding: 5px;">🔵 Blue</td>
+                    <td style="padding: 5px;">
+                        <button type="submit" name="test_command" value="I" class="buttons" style="background-color: #0066cc; color: white;">Test Idle</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;"><code>P</code> - Playing</td>
+                    <td style="padding: 5px;">🟢 Green</td>
+                    <td style="padding: 5px;">
+                        <button type="submit" name="test_command" value="P" class="buttons" style="background-color: #00cc00; color: white;">Test Playing</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;"><code>S</code> - Stopped</td>
+                    <td style="padding: 5px;">🔴 Red</td>
+                    <td style="padding: 5px;">
+                        <button type="submit" name="test_command" value="S" class="buttons" style="background-color: #cc0000; color: white;">Test Stopped</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;"><code>E</code> - Error</td>
+                    <td style="padding: 5px;">🔴 Blinking Red</td>
+                    <td style="padding: 5px;">
+                        <button type="submit" name="test_command" value="E" class="buttons" style="background-color: #cc6600; color: white;">Test Error</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;"><code>R</code> - Rainbow</td>
+                    <td style="padding: 5px;">🌈 Rainbow Cycle</td>
+                    <td style="padding: 5px;">
+                        <button type="submit" name="test_command" value="R" class="buttons" style="background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet); color: white;">Test Rainbow</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        
+        <p><small><i>Note: Make sure your device is configured and connected before testing. Check the log file for detailed information about each test.</i></small></p>
     </fieldset>
     
     <fieldset>

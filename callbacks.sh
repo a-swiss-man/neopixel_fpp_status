@@ -207,6 +207,16 @@ fi
 log_message "Event received: Type=$TYPE, Action=$ACTION"
 
 case "$TYPE" in
+    "test")
+        # Test mode: ACTION contains the status character to send (I, P, S, E, R)
+        if [ -n "$ACTION" ] && [[ "$ACTION" =~ ^[IPSER]$ ]]; then
+            log_message "Test mode: Sending status '$ACTION'"
+            send_status "$ACTION"
+        else
+            log_message "Test mode: Invalid status character '$ACTION'"
+            exit 1
+        fi
+        ;;
     "playlist")
         if [ "$ACTION" == "start" ]; then
             send_status "P" # Playing
