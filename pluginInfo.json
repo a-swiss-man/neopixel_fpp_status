@@ -1,10 +1,18 @@
 {
+  "repoName": "neopixel_fpp_status",
   "name": "NeoPixel Trinkey Status",
-  "version": "1.0",
   "author": "FPP User",
   "description": "Displays FPP status on an Adafruit NeoPixel Trinkey connected via USB.",
-  "minFPPVersion": "6.0",
-  "maxFPPVersion": "0",
-  "plugin": "neopixel_fpp_status",
-  "link": "https://github.com/a-swiss-man/neopixel_fpp_status"
+  "homeURL": "https://github.com/a-swiss-man/neopixel_fpp_status",
+  "srcURL": "https://github.com/a-swiss-man/neopixel_fpp_status.git",
+  "bugURL": "https://github.com/a-swiss-man/neopixel_fpp_status/issues",
+  "allowUpdates": 1,
+  "versions": [
+    {
+      "minFPPVersion": "6.0",
+      "maxFPPVersion": "0",
+      "branch": "master",
+      "sha": ""
+    }
+  ]
 }
