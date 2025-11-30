@@ -48,27 +48,57 @@ find_device() {
     # We look in /dev/serial/by-id/ which is standard on Linux/FPP
     
     DEVICE=""
+    DEVICE_SYMLINK=""
     
     # Check if /dev/serial/by-id exists
     if [ -d "/dev/serial/by-id" ]; then
-        # Find file containing "Adafruit" and "Trinkey" if possible, or just Adafruit
-        DEVICE=$(ls /dev/serial/by-id/*Adafruit*Trinkey* 2>/dev/null | head -n 1)
+        # First, try to find NeoPixel Trinkey specifically (most specific match)
+        DEVICE_SYMLINK=$(ls /dev/serial/by-id/*Adafruit*NeoPixel*Trinkey* 2>/dev/null | head -n 1)
         
-        if [ -z "$DEVICE" ]; then
-             # Fallback to just Adafruit
-             DEVICE=$(ls /dev/serial/by-id/*Adafruit* 2>/dev/null | head -n 1)
+        # If not found, try Trinkey (case insensitive)
+        if [ -z "$DEVICE_SYMLINK" ]; then
+            # Use find for case-insensitive matching
+            DEVICE_SYMLINK=$(find /dev/serial/by-id -iname "*adafruit*trinkey*" 2>/dev/null | head -n 1)
+        fi
+        
+        # If still not found, try just Adafruit (less specific)
+        if [ -z "$DEVICE_SYMLINK" ]; then
+            DEVICE_SYMLINK=$(ls /dev/serial/by-id/*Adafruit* 2>/dev/null | head -n 1)
+        fi
+        
+        # If we found a symlink, resolve it to the real device
+        if [ -n "$DEVICE_SYMLINK" ] && [ -L "$DEVICE_SYMLINK" ]; then
+            # Use readlink to get the real path, then resolve it
+            REAL_LINK=$(readlink -f "$DEVICE_SYMLINK" 2>/dev/null)
+            if [ -n "$REAL_LINK" ] && [ -e "$REAL_LINK" ]; then
+                DEVICE="$REAL_LINK"
+            else
+                # Fallback to the symlink itself if readlink fails
+                DEVICE="$DEVICE_SYMLINK"
+            fi
         fi
     fi
     
-    # If still not found, check ttyACM* directly (less reliable)
+    # If still not found, check ttyACM* directly (less reliable, but sometimes needed)
     if [ -z "$DEVICE" ]; then
+        # Check if ttyACM0 exists and might be our device
         # This is risky without ID checking, but a last resort
-        # DEVICE="/dev/ttyACM0"
-        log_message "Could not find device by ID."
+        if [ -e "/dev/ttyACM0" ]; then
+            # Try to verify it's an Adafruit device by checking if there's a symlink
+            ACM_LINK=$(find /dev/serial/by-id -lname "*ttyACM0" 2>/dev/null | grep -i adafruit | head -n 1)
+            if [ -n "$ACM_LINK" ]; then
+                DEVICE="/dev/ttyACM0"
+                log_message "Found device via ttyACM0 fallback: $DEVICE (linked from $ACM_LINK)"
+            fi
+        fi
+    fi
+    
+    if [ -z "$DEVICE" ]; then
+        log_message "Could not find device by ID. Checked /dev/serial/by-id for Adafruit devices."
         return 1
     fi
     
-    log_message "Device found (auto-detect): $DEVICE"
+    log_message "Device found (auto-detect): $DEVICE (from symlink: ${DEVICE_SYMLINK:-N/A})"
     echo "$DEVICE"
 }
 
@@ -79,26 +109,53 @@ send_status() {
     
     if [ -z "$DEVICE" ]; then
         log_message "Error: NeoPixel Trinkey not found."
-        return
+        return 1
+    fi
+    
+    # Verify device exists
+    if [ ! -e "$DEVICE" ]; then
+        log_message "Error: Device $DEVICE does not exist."
+        return 1
+    fi
+    
+    # Verify device is a character device
+    if [ ! -c "$DEVICE" ]; then
+        log_message "Error: Device $DEVICE is not a character device (might be a symlink issue)."
+        # Try to resolve symlink
+        REAL_DEVICE=$(readlink -f "$DEVICE" 2>/dev/null)
+        if [ -n "$REAL_DEVICE" ] && [ -c "$REAL_DEVICE" ]; then
+            DEVICE="$REAL_DEVICE"
+            log_message "Resolved to real device: $DEVICE"
+        else
+            return 1
+        fi
     fi
     
     # Verify device is writable
     if [ ! -w "$DEVICE" ]; then
-        log_message "Error: Device $DEVICE is not writable. Check permissions."
-        return
+        log_message "Error: Device $DEVICE is not writable. Check permissions. Current user: $(whoami), Device perms: $(ls -l "$DEVICE" | awk '{print $1, $3, $4}')"
+        return 1
     fi
     
     log_message "Sending status '$STATUS_CHAR' to $DEVICE"
     
     # Configure stty to ensure raw communication
-    stty -F "$DEVICE" 115200 raw -echo -echoe -echok 2>/dev/null
+    if ! stty -F "$DEVICE" 115200 raw -echo -echoe -echok 2>/dev/null; then
+        log_message "Warning: Could not configure stty for $DEVICE, continuing anyway..."
+    fi
     
     # Send the character using printf to ensure no extra characters
     # printf is more reliable than echo for single character transmission
-    printf '%s' "$STATUS_CHAR" > "$DEVICE"
+    if printf '%s' "$STATUS_CHAR" > "$DEVICE" 2>&1; then
+        log_message "Successfully sent '$STATUS_CHAR' to $DEVICE"
+    else
+        log_message "Error sending '$STATUS_CHAR' to $DEVICE: $?"
+        return 1
+    fi
     
     # Small delay to ensure transmission completes
     sleep 0.01
+    return 0
 }
 
 # Function to detect device on boot/startup
