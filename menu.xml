@@ -1,7 +1,0 @@
-<menu>
-  <item>
-    <name>NeoPixel Status Log</name>
-    <page>log_viewer.php</page>
-    <type>status</type>
-  </item>
-</menu>
