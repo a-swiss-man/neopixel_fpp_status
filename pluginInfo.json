@@ -4,6 +4,7 @@
   "author": "FPP User",
   "description": "Displays FPP status on an Adafruit NeoPixel Trinkey connected via USB.",
   "minFPPVersion": "6.0",
-  "maxFPPVersion": "9.9",
-  "plugin": "neopixel_fpp_status"
+  "maxFPPVersion": "0",
+  "plugin": "neopixel_fpp_status",
+  "link": "https://github.com/a-swiss-man/neopixel_fpp_status"
 }
